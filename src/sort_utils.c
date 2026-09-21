@@ -85,18 +85,6 @@ int strcmp_letters_only_rev(const void *ptr_a, const void *ptr_b) {
 }
 
 
-static void copy_element(uint8_t *src, uint8_t *dst, size_t size) { // todo: replace with memcpy
-    assert(src != NULL);
-    assert(dst != NULL);
-    assert(size > 0);
-    assert(size <= 1024);
-
-    for (size_t i = 0; i < size; i++) {
-        *(dst + i) = *(src + i);
-    }
-}
-
-
 static void swap_elements(uint8_t *a, uint8_t *b, size_t size) {
     assert(a != NULL);
     assert(b != NULL);
@@ -105,9 +93,9 @@ static void swap_elements(uint8_t *a, uint8_t *b, size_t size) {
 
     uint8_t tmp[size] = {};
 
-    copy_element(a, tmp, size); // tmp = a
-    copy_element(b, a, size); // a = b
-    copy_element(tmp, b, size); // b = tmp
+    memcpy(tmp, a, size); // tmp = a
+    memcpy(a, b, size); // a = b
+    memcpy(b, tmp, size); // b = tmp
 }
 
 
@@ -130,7 +118,7 @@ void myqsort(void *data_void, size_t data_len, size_t type_size,
     }
 
     uint8_t separator_element[type_size] = {};
-    copy_element(data + ((data_len - 1) / 2) * type_size, separator_element, type_size);
+    memcpy(separator_element, data + ((data_len - 1) / 2) * type_size, type_size); 
 
     size_t left_idx = 0;
     size_t right_idx = data_len - 1;
