@@ -50,7 +50,6 @@ int strcmp_letters_only_rev(const void *ptr_a, const void *ptr_b) {
     int64_t s1_ind = ((String *)ptr_a)->len - 1;
     int64_t s2_ind = ((String *)ptr_b)->len - 1;
 
-
     while (s1_ind >= 0 && s2_ind >= 0) {
         if (!isalpha(s1[s1_ind])) {
             s1_ind--;
@@ -70,16 +69,20 @@ int strcmp_letters_only_rev(const void *ptr_a, const void *ptr_b) {
     if (s1_ind == -1 && s2_ind == -1) {
         return 0;
     } else if (s1_ind == -1) {
-        for (int64_t i = s2_ind; i >= 0; s2_ind--) {
-                if (isalpha(s2_ind))
-                    return -1;
+        while (s2_ind >= 0) {
+            if (isalpha(s2_ind))
+                return -1;
+
+            s2_ind--;
         }
 
         return 0;
     } else {
-        for (int64_t i = s1_ind; i >= 0; s1_ind--) {
-                if (isalpha(s1_ind))
-                    return 1;
+        while (s1_ind >= 0) {
+            if (isalpha(s1_ind))
+                return 1;
+
+            s1_ind--;
         }
 
         return 0;
