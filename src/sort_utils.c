@@ -1,4 +1,5 @@
 #include "sort_utils.h"
+#include "file_utils.h" 
 
 #include <stdbool.h>
 #include <string.h>
@@ -11,28 +12,28 @@ int strcmp_letters_only(const void *ptr_a, const void *ptr_b) {
     assert(ptr_a != NULL);
     assert(ptr_b != NULL);
 
-    char *a = *(char **)ptr_a;
-    char *b = *(char **)ptr_b;
+    char *s1 = ((String *)ptr_a)->addr;
+    char *s2 = ((String *)ptr_b)->addr;
 
     size_t c = 0;
 
     while (true) {
-        if (a[c] == '\0' && b[c] != '\0') {
+        if (s1[c] == '\0' && s2[c] != '\0') {
             return 1;
-        } else if (a[c] != '\0' && b[c] == '\0') {
+        } else if (s1[c] != '\0' && s2[c] == '\0') {
             return -1;
-        } else if (a[c] == '\0' && b[c] == '\0') {
+        } else if (s1[c] == '\0' && s2[c] == '\0') {
             return 0;
-        } else if (!isalpha(a[c])) {
-            a++;
+        } else if (!isalpha(s1[c])) {
+            s1++;
             continue;
-        } else if (!isalpha(b[c])) {
-            b++;
+        } else if (!isalpha(s2[c])) {
+            s2++;
             continue;
         }
 
-        if (a[c] != b[c])
-            return (a[c] - b[c]);
+        if (s1[c] != s2[c])
+            return (s1[c] - s2[c]);
 
         c++;
     }
@@ -43,40 +44,41 @@ int strcmp_letters_only_rev(const void *ptr_a, const void *ptr_b) {
     assert(ptr_a != NULL);
     assert(ptr_b != NULL);
 
-    char *a = *(char **)ptr_a;
-    char *b = *(char **)ptr_b;
+    char *s1 = ((String *)ptr_a)->addr;
+    char *s2 = ((String *)ptr_b)->addr;
 
-    int64_t a_ind = strlen(a) - 1;
-    int64_t b_ind = strlen(b) - 1;
+    int64_t s1_ind = ((String *)ptr_a)->len - 1;
+    int64_t s2_ind = ((String *)ptr_b)->len - 1;
 
-    while (a_ind >= 0 && b_ind >= 0) {
-        if (!isalpha(a[a_ind])) {
-            a_ind--;
+
+    while (s1_ind >= 0 && s2_ind >= 0) {
+        if (!isalpha(s1[s1_ind])) {
+            s1_ind--;
             continue;
-        } else if (!isalpha(b[b_ind])) {
-            b_ind--;
+        } else if (!isalpha(s2[s2_ind])) {
+            s2_ind--;
             continue;
         }
 
-        if (a[a_ind] != b[b_ind])
-            return (a[a_ind] - b[b_ind]);
+        if (s1[s1_ind] != s2[s2_ind])
+            return (s1[s1_ind] - s2[s2_ind]);
 
-        a_ind--;
-        b_ind--;
+        s1_ind--;
+        s2_ind--;
     }
 
-    if (a_ind == -1 && b_ind == -1) {
+    if (s1_ind == -1 && s2_ind == -1) {
         return 0;
-    } else if (a_ind == -1) {
-        for (int64_t i = b_ind; i >= 0; b_ind--) {
-                if (isalpha(b_ind))
+    } else if (s1_ind == -1) {
+        for (int64_t i = s2_ind; i >= 0; s2_ind--) {
+                if (isalpha(s2_ind))
                     return -1;
         }
 
         return 0;
     } else {
-        for (int64_t i = a_ind; i >= 0; a_ind--) {
-                if (isalpha(a_ind))
+        for (int64_t i = s1_ind; i >= 0; s1_ind--) {
+                if (isalpha(s1_ind))
                     return 1;
         }
 
@@ -89,13 +91,14 @@ static void swap_elements(uint8_t *a, uint8_t *b, size_t size) {
     assert(a != NULL);
     assert(b != NULL);
     assert(size > 0);
-    assert(size <= 1024);
 
-    uint8_t tmp[size] = {};
+    uint8_t tmp = 0;
 
-    memcpy(tmp, a, size); // tmp = a
-    memcpy(a, b, size); // a = b
-    memcpy(b, tmp, size); // b = tmp
+    for (size_t i = 0; i < size; i++) {
+        tmp = *(uint8_t *)(a + i);
+        *(uint8_t *)(a + i) = *(uint8_t *)(b + i);
+        *(uint8_t *)(b + i) = tmp;
+    }
 }
 
 
@@ -104,7 +107,6 @@ void myqsort(void *data_void, size_t data_len, size_t type_size,
     assert(data_void != NULL);
     assert(compare != NULL);
     assert(type_size > 0);
-    assert(type_size <= 1024);
 
     uint8_t *data = (uint8_t *)data_void;
 

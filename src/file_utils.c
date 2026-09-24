@@ -2,6 +2,8 @@
 
 #include <stdlib.h>
 #include <assert.h>
+#include <string.h>
+#include <stdbool.h>
 #include <sys/stat.h>
 
 
@@ -26,11 +28,11 @@ const char *fs_error_str(FileStatus error) {
     }
 }
 
-FileStatus get_file_size(const char *filename, size_t *out_file_size) {
+static FileStatus get_file_size(const char *filename, size_t *out_file_size) {
     assert(filename != NULL);
     assert(out_file_size != NULL);
 
-    struct stat stat_buff;
+    struct stat stat_buff = {};
 
     if (lstat(filename, &stat_buff) == -1) {
         return FS_STAT_ERROR;
@@ -41,11 +43,22 @@ FileStatus get_file_size(const char *filename, size_t *out_file_size) {
     return FS_OK;
 }
 
+static size_t str_count_char(char *str, char ch) {
+    size_t res = 0;
 
-FileStatus load_file_alloc(const char *filename, char **out_buff, size_t *out_buff_len) {
+    while (*str != '\0') {
+        if (*str == ch)
+            res++;
+
+        str++;
+    }
+
+    return res;
+}
+
+static FileStatus load_file_alloc(const char *filename, IndexedFile *out_idx_file) {
     assert(filename != NULL);
-    assert(out_buff != NULL);
-    assert(out_buff_len != NULL);
+    assert(out_idx_file != NULL);
 
     FILE *file_ptr = fopen(filename, "r");
     if (file_ptr == NULL)
@@ -79,25 +92,83 @@ FileStatus load_file_alloc(const char *filename, char **out_buff, size_t *out_bu
 
     file_buff[file_buff_len] = '\0';
 
-    *(out_buff) = file_buff;
-    *(out_buff_len) = file_buff_len;
+    out_idx_file->content = file_buff;
+    out_idx_file->content_len = file_buff_len;
 
     return FS_OK;
 }
 
 
-FileStatus write_poem(FILE* file_ptr, char *index[], uint16_t lines, const char *header) {
+static FileStatus index_lines(IndexedFile *idx_file) {
+    assert(idx_file != NULL);
+
+    idx_file->index = calloc(str_count_char(idx_file->content, '\n'), sizeof(idx_file->index[0]));
+    if (idx_file->index == NULL)
+        return FS_ALLOC_ERROR;
+
+    String *index = idx_file->index;
+
+    index[0].addr = idx_file->content;
+
+    idx_file->lines_numb = 1;
+
+    while (true) {
+        char *addr = strchr(index[idx_file->lines_numb - 1].addr, '\n'); // load_file_alloc adds '\0' at the end of written data, so strchr won't search for '\n' infinitely
+        if (addr == NULL)
+            break;
+
+        if (addr == idx_file->content + idx_file->content_len - 1) {
+            index[idx_file->lines_numb - 1].len = addr - index[idx_file->lines_numb - 1].addr;
+            *addr = '\0';
+            break;
+        }
+
+        *addr = '\0';
+        index[idx_file->lines_numb - 1].len = addr - index[idx_file->lines_numb - 1].addr;
+        index[idx_file->lines_numb].addr = addr + 1;
+        
+        idx_file->lines_numb++;
+    }
+
+    return FS_OK;
+}
+
+
+FileStatus create_indexed_file(const char *filename, IndexedFile *out_idx_file) {
+    assert(filename != NULL);
+    assert(out_idx_file != NULL);
+
+    FileStatus status = load_file_alloc(filename, out_idx_file);
+
+    if (status != FS_OK) {
+        return status; 
+    }
+
+    status = index_lines(out_idx_file);
+
+    return status;
+}
+
+void destroy_indexed_file(IndexedFile *out_idx_file) {
+    if (out_idx_file->content != NULL)
+        free(out_idx_file->content);
+
+    if (out_idx_file->index != NULL)
+        free(out_idx_file->index);
+}
+
+FileStatus write_poem(FILE *file_ptr, const IndexedFile *idx_file, const char *header) {
     assert(file_ptr != NULL);
+    assert(idx_file != NULL);
     assert(header != NULL);
-    assert(index != NULL);
 
     if (fprintf(file_ptr, "%s\n================================\n\n", header) < 0)
         return FS_WRITE_ERROR;
 
-    int curr_ind = 0;
+    size_t curr_ind = 0;
 
-    while (curr_ind < lines) {
-        if (fprintf(file_ptr, "%s\n", index[curr_ind]) < 0)
+    while (curr_ind < idx_file->lines_numb) {
+        if (fprintf(file_ptr, "%s\n", idx_file->index[curr_ind].addr) < 0)
                 return FS_WRITE_ERROR;
 
         curr_ind++;
@@ -110,21 +181,24 @@ FileStatus write_poem(FILE* file_ptr, char *index[], uint16_t lines, const char 
 }
 
 
-FileStatus write_orig_poem(FILE *file_ptr, const char *file_content, uint16_t lines, const char *header) {
+FileStatus write_orig_poem(FILE *file_ptr, const IndexedFile *idx_file, const char *header) {
     assert(file_ptr != NULL);
-    assert(file_content != NULL);
+    assert(idx_file != NULL);
     assert(header != NULL);
-    assert(lines > 0);
 
     if (fprintf(file_ptr, "%s\n================================\n\n", header) < 0)
         return FS_WRITE_ERROR;
 
-    while (lines--) {
-        int written_size = fprintf(file_ptr, "%s\n", file_content);
+    size_t lines_numb = idx_file->lines_numb;
+    char *line_ptr = idx_file->content;
+
+    while (lines_numb--) {
+        int written_size = fprintf(file_ptr, "%s\n", line_ptr);
+
         if (written_size < 0)
             return FS_WRITE_ERROR;
 
-        file_content += written_size;
+        line_ptr += written_size;
     }
 
     if (fputs("\n================================\n\n", file_ptr) == EOF)
@@ -132,3 +206,4 @@ FileStatus write_orig_poem(FILE *file_ptr, const char *file_content, uint16_t li
 
     return FS_OK;
 }
+
